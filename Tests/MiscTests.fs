@@ -44,6 +44,27 @@ module StringExtensionsTests =
     [<Fact>]
     let slug_5 () = Assert.Equal("", "".Slug())
 
+    /// Expected values are github-slugger's own output (npm 2.0.0) for each
+    /// heading's rendered text. Each also reduces, through `Slug.ofString`, to the
+    /// slug of its heading, which is why a link written this way resolves here.
+    [<Fact>]
+    let markdownAnchorIsGithubs () =
+        for heading, anchor in
+            [
+                "The retention decision", "the-retention-decision"
+                "Version 1.5", "version-15"
+                "a -- b", "a----b"
+                "C++ & Rust", "c--rust"
+                "Émile's café", "émiles-café"
+                "foo_bar baz", "foo_bar-baz"
+                "Re: [X](c.md#y)", "re-x"
+                "_Emphasis_ and foo_bar", "emphasis-and-foo_bar"
+            ] do
+            Assert.Equal(anchor, Slug.markdownAnchor heading)
+
+            if not (heading.Contains "](") then
+                Assert.Equal(Slug.ofString heading, Slug.ofString anchor)
+
     [<Fact>]
     let lines_1 () = Assert.Equal<string>([| "Line" |], "Line".Lines())
 

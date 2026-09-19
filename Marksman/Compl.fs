@@ -580,7 +580,7 @@ module Completions =
         (compl: Completable)
         (completionHeading: string)
         : option<CompletionItem> =
-        let headingSlug = Slug.str completionHeading
+        let headingSlug = Slug.markdownAnchor completionHeading
 
         match compl with
         | E(ML { data = MdLink.IL(_, Some url, _) }) ->
@@ -626,7 +626,7 @@ module Completions =
 
             match url.url, url.anchor with
             | Some url, Some anchor ->
-                let newText = $"{targetPathEncoded}#{Slug.str targetHeading}"
+                let newText = $"{targetPathEncoded}#{Slug.markdownAnchor targetHeading}"
                 let newRange = Range.Mk(url.range.Start, anchor.range.End)
                 let filterText = $"{targetPathEncoded}#{targetHeading}"
 
@@ -640,7 +640,7 @@ module Completions =
             | _, _ -> None
         | PE(PartialElement.InlineLink(Some text, Some _path, Some _anchor, range)) ->
             let newText =
-                $"[{text.text}]({targetPathEncoded}#{Slug.str targetHeading})"
+                $"[{text.text}]({targetPathEncoded}#{Slug.markdownAnchor targetHeading})"
 
             let filterText = $"[{text.text}]({targetPathEncoded}#{targetHeading})"
 

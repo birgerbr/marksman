@@ -193,6 +193,32 @@ module Slug =
 
     let str (s: string) = s.Slug()
 
+    /// The anchor a markdown link to `heading` is written with: GitHub's
+    /// (github-slugger), which is also what VS Code, GitLab, pandoc's GFM mode, Hugo
+    /// and mdBook compute. Take the rendered text (link syntax gone, emphasis `_`
+    /// gone unless it is inside a word), lowercase it, delete everything but letters,
+    /// digits, `-`, `_` and spaces, and turn each space into `-`.
+    ///
+    /// Lookup is unaffected: an anchor is compared through `ofString`, which reduces
+    /// this form and the heading to the same slug, so a link written this way
+    /// resolves here and on every renderer that follows GitHub.
+    let markdownAnchor (heading: string) : string =
+        let rendered =
+            Regex.Replace(heading, @"!?\[([^\]]*)\](\([^)]*\)|\[[^\]]*\])?", "$1")
+
+        let rendered =
+            Regex.Replace(rendered, @"(?<![\p{L}\p{N}])_+|_+(?![\p{L}\p{N}])", "")
+
+        let sb = StringBuilder()
+
+        for c in rendered.Trim() do
+            if c = ' ' then
+                sb.Append('-') |> ignore
+            elif Char.IsLetterOrDigit c || c = '-' || c = '_' then
+                sb.Append(Char.ToLowerInvariant c) |> ignore
+
+        sb.ToString()
+
     let isEmpty (Slug s) = String.IsNullOrEmpty s
 
     let isSubSequence (sub: Slug) (sup: Slug) =

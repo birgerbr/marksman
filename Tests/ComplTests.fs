@@ -496,6 +496,28 @@ module Candidates =
 
         checkSnapshot (findCandidatesInDoc folder doc1 (Position.Mk(1, 8)))
 
+    /// A completed anchor is GitHub's, so the link works on every renderer that
+    /// follows GitHub; lookup here reduces it to the same slug either way.
+    [<Fact>]
+    let partialInlineHeadingIsGithubAnchor () =
+        let doc1 =
+            FakeDoc.Mk(
+                path = "doc1.md",
+                contentLines = [| "# Doc 1"; "[link](#"; "## C++ & Rust"; "## foo_bar baz" |]
+            )
+
+        let folder = FakeFolder.Mk([ doc1 ])
+
+        let texts =
+            findCandidatesInDoc folder doc1 (Position.Mk(1, 8))
+            |> Array.choose (fun c ->
+                match c.TextEdit with
+                | Some(First edit) -> Some edit.NewText
+                | _ -> None)
+
+        Assert.Contains("[link](#c--rust)", texts)
+        Assert.Contains("[link](#foo_bar-baz)", texts)
+
     [<Fact>]
     let partialInlineDoc () =
         let doc1 =

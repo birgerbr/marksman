@@ -137,7 +137,10 @@ let renameHeadingLink
                     None
 
             toEdit
-            |> Option.map (fun node -> { Range = node.range; NewText = Slug.str newTitle })
+            |> Option.map (fun node -> {
+                Range = node.range
+                NewText = Slug.markdownAnchor newTitle
+            })
         | _ -> None
     else
         None
