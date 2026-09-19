@@ -615,3 +615,64 @@ module RegressionTests =
         let folder = FakeFolder.Mk([ doc ])
         let el = requireElementAtPos doc 0 4
         Assert.Empty(Dest.tryResolveElement folder doc el)
+
+module DefinitionTests =
+    let doc1 =
+        FakeDoc.Mk(
+            path = "doc1.md",
+            contentLines = [|
+                "# Doc 1" // 0
+                "" // 1
+                "See [x][to-heading], [y][to-web] and [z][to-missing]." // 2
+                "" // 3
+                "[to-heading]: doc2.md#the-heading" // 4
+                "[to-web]: https://example.com" // 5
+                "[to-missing]: doc2.md#no-such-heading" // 6
+            |]
+        )
+
+    let doc2 =
+        FakeDoc.Mk(path = "doc2.md", contentLines = [| "# Doc 2"; ""; "## The heading" |])
+
+    let folder = FakeFolder.Mk [ doc1; doc2 ]
+
+    let format (dests: seq<Dest>) =
+        dests
+        |> Seq.map (fun dest ->
+            Path.GetFileName(Dest.doc dest |> Doc.uri), (Dest.range dest).DebuggerDisplay)
+        |> Array.ofSeq
+
+    let definitionAt line col =
+        Dest.tryResolveDefinition folder doc1 (requireElementAtPos doc1 line col)
+        |> format
+
+    [<Fact>]
+    let referenceGoesThroughDefinitionToHeading () =
+        checkInlineSnapshot (fun x -> x.ToString()) (definitionAt 2 5) [ "(doc2.md, (2,0)-(2,14))" ]
+
+    [<Fact>]
+    let definitionGoesToHeading () =
+        checkInlineSnapshot (fun x -> x.ToString()) (definitionAt 4 20) [
+            "(doc2.md, (2,0)-(2,14))"
+        ]
+
+    [<Fact>]
+    let referenceToExternalUrlStopsAtDefinition () =
+        checkInlineSnapshot (fun x -> x.ToString()) (definitionAt 2 22) [
+            "(doc1.md, (5,0)-(5,29))"
+        ]
+
+    [<Fact>]
+    let referenceToMissingHeadingStopsAtDefinition () =
+        checkInlineSnapshot (fun x -> x.ToString()) (definitionAt 2 38) [
+            "(doc1.md, (6,0)-(6,37))"
+        ]
+
+    [<Fact>]
+    let declarationStillGoesToDefinition () =
+        let el = requireElementAtPos doc1 2 5
+
+        checkInlineSnapshot
+            (fun x -> x.ToString())
+            (Dest.tryResolveElement folder doc1 el |> format)
+            [ "(doc1.md, (4,0)-(4,33))" ]

@@ -181,6 +181,20 @@ module MdLink =
             let fmtLabel = Node.fmtText label
             $"RS: label={fmtLabel}"
 
+    /// The abstract form of an inline link. A link definition's destination is read through
+    /// this too, as the inline link the definition abbreviates.
+    let inlineToAbstract (text: string) (url: option<UrlEncodedNode>) : Ast.MdLink =
+        let urlNode = url |>> Url.ofUrlNode
+
+        let url =
+            urlNode >>= (fun x -> x.url) |>> (fun x -> UrlEncoded.decode x.data)
+
+        let anchor =
+            urlNode >>= (fun x -> x.anchor)
+            |>> (fun x -> UrlEncoded.decode x.data)
+
+        { text = text; url = url; anchor = anchor }
+
     let referenceLabel =
         function
         | MdLink.RF(_, label)
@@ -227,6 +241,7 @@ module MdLinkDef =
     let toAbstract (mdDef: MdLinkDef) : Ast.MdLinkDef = {
         label = mdDef.label.text
         url = mdDef.url.data
+        target = MdLink.inlineToAbstract mdDef.label.text (Some mdDef.url)
     }
 
 
@@ -391,17 +406,7 @@ module Element =
         | ML { data = mdLink } ->
             match mdLink with
             | MdLink.IL(text, url, _) ->
-                let urlNode = url |>> Url.ofUrlNode
-
-                let url =
-                    urlNode >>= (fun x -> x.url) |>> (fun x -> UrlEncoded.decode x.data)
-
-                let anchor =
-                    urlNode >>= (fun x -> x.anchor)
-                    |>> (fun x -> UrlEncoded.decode x.data)
-
-                Ast.Element.ML { text = text.text; url = url; anchor = anchor }
-                |> Some
+                MdLink.inlineToAbstract text.text url |> Ast.Element.ML |> Some
             | MdLink.RF(text, label) -> Ast.Element.MR(Ast.Full(text.text, label.text)) |> Some
             | MdLink.RC label -> Ast.Element.MR(Ast.Collapsed(label.text)) |> Some
             | MdLink.RS label -> Ast.Element.MR(Ast.Shortcut(label.text)) |> Some

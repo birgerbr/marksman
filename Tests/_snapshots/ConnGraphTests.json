@@ -22,6 +22,7 @@
       "  d3.md:",
       "    [link1]",
       "    [linkx]",
+      "    [[/url1]]",
       "Defs:",
       "  d1.md:",
       "    Doc",
@@ -59,8 +60,10 @@
       "  [[doc-NA2]] @ d2.md -> FullyUnknown",
       "  [[doc-1#d1s1]] @ d2.md -> d1_dup.md",
       "  [linkx] @ d3.md -> d3.md",
+      "  [[/url1]] @ d3.md -> FullyUnknown",
       "  FullyUnknown -> [[doc-NA]] @ d1.md",
       "  FullyUnknown -> [[doc-NA2]] @ d2.md",
+      "  FullyUnknown -> [[/url1]] @ d3.md",
       "  d1_dup.md -> [[doc-1#d1s1]] @ d2.md",
       "  d3.md -> [linkx] @ d3.md"
     ]
@@ -78,6 +81,7 @@
       "  d3.md:",
       "    [link1]",
       "    [linkx]",
+      "    [[/url1]]",
       "Defs:",
       "  d1.md:",
       "    Doc",
@@ -106,8 +110,10 @@
       "  [[doc-NA]] @ d1.md -> FullyUnknown",
       "  [[doc-NA2]] @ d2.md -> FullyUnknown",
       "  [linkx] @ d3.md -> d3.md",
+      "  [[/url1]] @ d3.md -> FullyUnknown",
       "  FullyUnknown -> [[doc-NA]] @ d1.md",
       "  FullyUnknown -> [[doc-NA2]] @ d2.md",
+      "  FullyUnknown -> [[/url1]] @ d3.md",
       "  d3.md -> [linkx] @ d3.md"
     ]
   },
@@ -124,6 +130,7 @@
       "  d3.md:",
       "    [link1]",
       "    [linkx]",
+      "    [[/url1]]",
       "Defs:",
       "  d1.md:",
       "    Doc",
@@ -157,7 +164,9 @@
       "Unresolved:",
       "  [[doc-NA2]] @ d2.md -> FullyUnknown",
       "  [linkx] @ d3.md -> d3.md",
+      "  [[/url1]] @ d3.md -> FullyUnknown",
       "  FullyUnknown -> [[doc-NA2]] @ d2.md",
+      "  FullyUnknown -> [[/url1]] @ d3.md",
       "  d3.md -> [linkx] @ d3.md"
     ]
   },
@@ -174,6 +183,8 @@
       "  d3.md:",
       "    [link1]",
       "    [linkx]",
+      "    [[/url1]]",
+      "    [[/url2]]",
       "Defs:",
       "  d1.md:",
       "    Doc",
@@ -204,8 +215,12 @@
       "Unresolved:",
       "  [[doc-NA]] @ d1.md -> FullyUnknown",
       "  [[doc-NA2]] @ d2.md -> FullyUnknown",
+      "  [[/url1]] @ d3.md -> FullyUnknown",
+      "  [[/url2]] @ d3.md -> FullyUnknown",
       "  FullyUnknown -> [[doc-NA]] @ d1.md",
-      "  FullyUnknown -> [[doc-NA2]] @ d2.md"
+      "  FullyUnknown -> [[doc-NA2]] @ d2.md",
+      "  FullyUnknown -> [[/url1]] @ d3.md",
+      "  FullyUnknown -> [[/url2]] @ d3.md"
     ]
   },
   "removeHeading": {
@@ -221,6 +236,7 @@
       "  d3.md:",
       "    [link1]",
       "    [linkx]",
+      "    [[/url1]]",
       "Defs:",
       "  d1.md:",
       "    Doc",
@@ -247,8 +263,10 @@
       "  [[doc-NA2]] @ d2.md -> FullyUnknown",
       "  [[doc-1#d1s1]] @ d2.md -> d1.md",
       "  [linkx] @ d3.md -> d3.md",
+      "  [[/url1]] @ d3.md -> FullyUnknown",
       "  FullyUnknown -> [[doc-NA]] @ d1.md",
       "  FullyUnknown -> [[doc-NA2]] @ d2.md",
+      "  FullyUnknown -> [[/url1]] @ d3.md",
       "  d1.md -> [[doc-1#d1s1]] @ d2.md",
       "  d3.md -> [linkx] @ d3.md"
     ]

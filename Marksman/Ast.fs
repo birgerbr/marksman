@@ -72,6 +72,8 @@ type MdRef =
 type MdLinkDef = {
     label: string
     url: UrlEncoded
+    /// The destination, read as the inline link `[label](url)` that the definition abbreviates.
+    target: MdLink
 } with
 
     member this.Label = LinkLabel.ofString this.label
@@ -170,5 +172,11 @@ module Element =
         | Element.MR mdRef -> Some(Syms.Sym.Ref(IntraRef(IntraLinkDef mdRef.DestLabel)))
         | Element.MLD mdLinkDef -> Some(Syms.Sym.Def(LinkDef(mdLinkDef.Label)))
         | Element.T(Tag tag) -> Some(Syms.Sym.Tag(Syms.Tag tag))
+
+    /// The reference a link definition makes through its destination: the symbol of the inline
+    /// link the definition abbreviates, so `[text][label]` and `[text](url)` resolve along one
+    /// path.
+    let linkDefTargetSym (parserSettings: Config.ParserSettings) (mdLinkDef: MdLinkDef) =
+        toSym parserSettings (Element.ML mdLinkDef.target)
 
 type Ast = { elements: Element[] }

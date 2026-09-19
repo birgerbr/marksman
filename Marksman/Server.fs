@@ -159,6 +159,7 @@ module ServerUtil =
                         CompletionItem = None
                     }
                 DefinitionProvider = Some true
+                DeclarationProvider = Some true
                 HoverProvider = Some true
                 ReferencesProvider = Some true
                 CodeActionProvider = Some(Second codeActionOptions)
@@ -466,6 +467,16 @@ type StateManager(initState: State) =
 
     interface IDisposable with
         member _.Dispose() = (agent :> IDisposable).Dispose()
+
+let private gotoResult (dests: seq<Dest>) : option<GotoResult> =
+    let locs =
+        dests
+        |> Seq.map (fun dest -> { Uri = dest |> Dest.doc |> Doc.uri; Range = Dest.range dest })
+        |> Array.ofSeq
+
+    if locs.Length = 0 then None
+    else if locs.Length = 1 then Some(GotoResult.Single locs[0])
+    else Some(GotoResult.Multiple locs)
 
 type MarksmanServer(client: MarksmanClient) =
     inherit LspServer()
@@ -811,21 +822,30 @@ type MarksmanServer(client: MarksmanClient) =
             let goto =
                 monad' {
                     let! folder, srcDoc = State.tryFindFolderAndDoc docUri state
+                    let index = Doc.index srcDoc
 
+                    let! atPos =
+                        Index.linkAtPos par.Position index
+                        |> Option.orElseWith (fun () ->
+                            match Index.declAtPos par.Position index with
+                            | Some(MLD _ as linkDef) -> Some linkDef
+                            | _ -> None)
+
+                    return! gotoResult (Dest.tryResolveDefinition folder srcDoc atPos)
+                }
+
+            LspResult.success goto
+
+    override this.TextDocumentDeclaration(par: TextDocumentPositionParams) =
+        withState
+        <| fun state ->
+            let docUri = par.TextDocument.Uri |> UriWith.mkAbs
+
+            let goto =
+                monad' {
+                    let! folder, srcDoc = State.tryFindFolderAndDoc docUri state
                     let! atPos = Doc.index srcDoc |> Index.linkAtPos par.Position
-                    let refs = Dest.tryResolveElement folder srcDoc atPos
-
-                    let locs =
-                        refs
-                        |> Seq.map (fun ref -> {
-                            Uri = ref |> Dest.doc |> Doc.uri
-                            Range = (Dest.range ref)
-                        })
-                        |> Array.ofSeq
-
-                    if locs.Length = 0 then return! None
-                    else if locs.Length = 1 then GotoResult.Single locs[0]
-                    else GotoResult.Multiple locs
+                    return! gotoResult (Dest.tryResolveElement folder srcDoc atPos)
                 }
 
             LspResult.success goto

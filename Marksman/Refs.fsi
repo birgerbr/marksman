@@ -53,4 +53,9 @@ module Dest =
 
     val tryResolveSym: Folder -> Doc -> Syms.Sym -> seq<Dest>
     val tryResolveElement: Folder -> Doc -> Element -> seq<Dest>
+    /// Where a link definition's destination leads, resolved as the inline link it abbreviates.
+    val tryResolveLinkDefTarget: Folder -> Doc -> Node<MdLinkDef> -> seq<Dest>
+    /// Where go-to-definition lands: like `tryResolveElement`, except that link definitions are
+    /// followed to their destinations.
+    val tryResolveDefinition: Folder -> Doc -> Element -> seq<Dest>
     val findElementRefs: bool -> Folder -> Doc -> Element -> seq<Doc * Element>

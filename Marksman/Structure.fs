@@ -11,6 +11,9 @@ type Structure = private {
     sym: Set<Sym>
     c2a: Mapping<Cst.Element, Ast.Element>
     a2s: Mapping<Ast.Element, Sym>
+    /// A link definition's destination, as the reference it makes. Kept apart from `a2s`
+    /// because the definition element's own symbol is the label it defines.
+    linkDefTargets: Mapping<Ast.Element, Sym>
 } with
 
     member this.Cst = this.cst
@@ -61,6 +64,14 @@ module Structure =
         findAbstractForSymbol sym structure
         |> Set.fold (fun acc ael -> acc + findConcreteForAbstract ael structure) Set.empty
 
+    /// The reference a link definition makes through its destination, when the destination is
+    /// a document or a section rather than an external URL.
+    let tryFindLinkDefTargetForConcrete (cel: Cst.Element) structure : option<Sym> =
+        monad' {
+            let! ael = tryFindMatchingAbstract cel structure
+            return! Mapping.tryImage ael structure.linkDefTargets
+        }
+
     let ofCst (parserSettings: Config.ParserSettings) (cst: Cst.Cst) : Structure =
         let rec go cst =
             seq {
@@ -80,6 +91,7 @@ module Structure =
 
         let mutable c2a = Mapping.empty
         let mutable a2s = Mapping.empty
+        let mutable linkDefTargets = Mapping.empty
         // Accumulate AST elements and mapping
         for cel, ael, sym in go cst.elements do
             abs.Add(ael)
@@ -90,6 +102,22 @@ module Structure =
                 syms.Add(sym)
                 a2s <- Mapping.add ael sym a2s)
 
+            // A source symbol like any other reference, so the connection graph resolves it.
+            match ael with
+            | Ast.Element.MLD mdLinkDef ->
+                Ast.Element.linkDefTargetSym parserSettings mdLinkDef
+                |> Option.iter (fun target ->
+                    syms.Add(target)
+                    linkDefTargets <- Mapping.add ael target linkDefTargets)
+            | _ -> ()
+
         let ast: Ast.Ast = { elements = abs.ToArray() }
 
-        { cst = cst; ast = ast; sym = Set.ofSeq syms; c2a = c2a; a2s = a2s }
+        {
+            cst = cst
+            ast = ast
+            sym = Set.ofSeq syms
+            c2a = c2a
+            a2s = a2s
+            linkDefTargets = linkDefTargets
+        }

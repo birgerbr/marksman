@@ -203,6 +203,34 @@ module Dest =
         | None -> Seq.empty
         | Some sym -> tryResolveSym folder doc sym
 
+    let tryResolveLinkDefTarget
+        (folder: Folder)
+        (doc: Doc)
+        (linkDef: Cst.Node<Cst.MdLinkDef>)
+        : seq<Dest> =
+        match
+            Doc.structure doc
+            |> Structure.tryFindLinkDefTargetForConcrete (Cst.MLD linkDef)
+        with
+        | None -> Seq.empty
+        | Some target -> tryResolveSym folder doc target
+
+    // `[text][label]` abbreviates `[text](url)`, so both go where the link goes: a reference is
+    // followed through its definition, and a definition to what its destination names. When the
+    // destination resolves to nothing (an external URL, a missing document) the definition is
+    // itself the answer, which is also what go-to-declaration gives.
+    let tryResolveDefinition (folder: Folder) (doc: Doc) (element: Cst.Element) : seq<Dest> =
+        let follow dest =
+            match dest with
+            | Dest.LinkDef(defDoc, linkDef) ->
+                let targets = tryResolveLinkDefTarget folder defDoc linkDef |> Array.ofSeq
+                if Array.isEmpty targets then [| dest |] else targets
+            | _ -> [| dest |]
+
+        match element with
+        | Cst.MLD linkDef -> tryResolveLinkDefTarget folder doc linkDef
+        | _ -> tryResolveElement folder doc element |> Seq.collect follow
+
     let private findTagRefs includeDecl folder srcDocId srcEl tag =
         let srcDoc = Folder.findDocById srcDocId folder
 
