@@ -50,9 +50,32 @@ let checkNonBreakingWhitespace (doc: Doc) =
 
             [ NonBreakableWhitespace(whitespaceRange) ])
 
-let checkLink (folder: Folder) (doc: Doc) (linkEl: Element) : seq<Entry> =
+/// Report a reference that resolves to nothing or to more than one place.
+///
+/// `docUrl` is the document part of an inline destination, with the anchor already split off:
+/// `doc.md#section` names `doc.md`. A destination whose document does not look like a markdown
+/// file most likely points outside the folder, so leaving it unresolved is not reported.
+let private checkResolution
+    (folder: Folder)
+    (el: Element)
+    (ref: Syms.Ref)
+    (dests: array<Dest>)
+    (docUrl: option<string>)
+    : list<Entry> =
     let exts = Folder.configuredMarkdownExts folder
 
+    if Folder.isSingleFile folder && Syms.Ref.isCross ref then
+        []
+    else if dests.Length = 1 then
+        []
+    else if dests.Length = 0 then
+        match docUrl with
+        | Some docUrl when not (Misc.isMarkdownFile exts docUrl) -> []
+        | _ -> [ BrokenLink(el, ref) ]
+    else
+        [ AmbiguousLink(el, ref, dests) ]
+
+let checkLink (folder: Folder) (doc: Doc) (linkEl: Element) : seq<Entry> =
     let ref =
         doc.Structure
         |> Structure.Structure.tryFindSymbolForConcrete linkEl
@@ -61,34 +84,48 @@ let checkLink (folder: Folder) (doc: Doc) (linkEl: Element) : seq<Entry> =
     match ref with
     | None -> []
     | Some ref ->
-        let refs = Dest.tryResolveElement folder doc linkEl |> Array.ofSeq
+        let dests = Dest.tryResolveElement folder doc linkEl |> Array.ofSeq
 
-        if Folder.isSingleFile folder && Syms.Ref.isCross ref then
-            []
-        else if refs.Length = 1 then
-            []
-        else if refs.Length = 0 then
-            match linkEl with
-            // Inline shortcut links often are a part of regular text.
-            // Raising diagnostics on them would be noisy.
-            | ML { data = MdLink.RS _ } -> []
-            | ML { data = MdLink.IL(_, url, _) } ->
-                match url with
-                | Some { data = url } ->
-                    // Inline links to docs that don't look like a markdown file should not
-                    // produce diagnostics
-                    if Misc.isMarkdownFile exts (UrlEncoded.decode url) then
-                        [ BrokenLink(linkEl, ref) ]
-                    else
-                        []
-                | _ -> [ BrokenLink(linkEl, ref) ]
-            | _ -> [ BrokenLink(linkEl, ref) ]
-        else
-            [ AmbiguousLink(linkEl, ref, refs) ]
+        match linkEl with
+        // Inline shortcut links often are a part of regular text.
+        // Raising diagnostics on them would be noisy.
+        | ML { data = MdLink.RS _ } when dests.Length = 0 -> []
+        | _ ->
+            let docUrl =
+                match Structure.Structure.tryFindMatchingAbstract linkEl doc.Structure with
+                | Some(Ast.Element.ML mdLink) -> mdLink.url
+                | _ -> None
+
+            checkResolution folder linkEl ref dests docUrl
+
+/// A link definition's destination is checked like the inline link it abbreviates.
+let checkLinkDef (folder: Folder) (doc: Doc) (linkDef: Node<MdLinkDef>) : seq<Entry> =
+    let el = MLD linkDef
+
+    let target =
+        doc.Structure
+        |> Structure.Structure.tryFindLinkDefTargetForConcrete el
+        |> Option.bind Syms.Sym.asRef
+
+    match target with
+    | None -> []
+    | Some target ->
+        let dests = Dest.tryResolveLinkDefTarget folder doc linkDef |> Array.ofSeq
+
+        let docUrl =
+            match Structure.Structure.tryFindMatchingAbstract el doc.Structure with
+            | Some(Ast.Element.MLD mdLinkDef) -> mdLinkDef.target.url
+            | _ -> None
+
+        checkResolution folder el target dests docUrl
 
 let checkLinks (folder: Folder) (doc: Doc) : seq<Entry> =
-    let links = Doc.index >> Index.links <| doc
-    links |> Seq.collect (checkLink folder doc)
+    let index = Doc.index doc
+
+    seq {
+        yield! Index.links index |> Seq.collect (checkLink folder doc)
+        yield! Index.linkDefs index |> Seq.collect (checkLinkDef folder doc)
+    }
 
 let checkDoc (folder: Folder) (doc: Doc) : list<Entry> =
     seq {
@@ -121,9 +158,10 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
         let severity =
             match el with
             | WL _ -> Lsp.DiagnosticSeverity.Error
-            | ML _ -> Lsp.DiagnosticSeverity.Warning
+            // A link definition is the destination of the reference links that use it.
+            | ML _
+            | MLD _ -> Lsp.DiagnosticSeverity.Warning
             | H _
-            | MLD _
             | T _
             | YML _ -> Lsp.DiagnosticSeverity.Information
 
@@ -149,9 +187,10 @@ let diagToLsp (diag: Entry) : Lsp.Diagnostic =
         let severity =
             match el with
             | WL _ -> Lsp.DiagnosticSeverity.Error
-            | ML _ -> Lsp.DiagnosticSeverity.Warning
+            // A link definition is the destination of the reference links that use it.
+            | ML _
+            | MLD _ -> Lsp.DiagnosticSeverity.Warning
             | H _
-            | MLD _
             | T _
             | YML _ -> Lsp.DiagnosticSeverity.Information
 

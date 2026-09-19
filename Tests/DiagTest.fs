@@ -119,6 +119,75 @@ let crossFileDiagOnBrokenWikiLinks () =
     Assert.Equal<string * string>([ "fake.md", "Link to non-existent document 'bad'" ], diag)
 
 [<Fact>]
+let diagOnBrokenInlineLinksWithAnchor () =
+    let source =
+        FakeDoc.Mk(
+            path = "source.md",
+            contentLines = [|
+                "[good](target.md#the-heading)"
+                "[bad heading](target.md#no-such-heading)"
+                "[bad doc](missing.md#the-heading)"
+                "[bad intra](#no-such-heading)"
+                "[not markdown](image.png#frag)"
+            |]
+        )
+
+    let target =
+        FakeDoc.Mk(path = "target.md", contentLines = [| "# Target"; "## The heading" |])
+
+    let folder = FakeFolder.Mk [ source; target ]
+
+    Assert.Equal<string * string>(
+        [
+            "source.md", "Link to non-existent heading 'no-such-heading' in document 'target.md'"
+            "source.md", "Link to non-existent heading 'the-heading' in document 'missing.md'"
+            "source.md", "Link to non-existent heading 'no-such-heading'"
+        ],
+        diagToHuman folder
+    )
+
+[<Fact>]
+let diagOnBrokenLinkDefDestinations () =
+    let source =
+        FakeDoc.Mk(
+            path = "source.md",
+            contentLines = [|
+                "[a], [b], [c], [d] and [e]."
+                ""
+                "[a]: target.md#the-heading"
+                "[b]: target.md#no-such-heading"
+                "[c]: missing.md"
+                "[d]: https://example.com/page.md"
+                "[e]: image.png"
+            |]
+        )
+
+    let target =
+        FakeDoc.Mk(path = "target.md", contentLines = [| "# Target"; "## The heading" |])
+
+    let folder = FakeFolder.Mk [ source; target ]
+
+    Assert.Equal<string * string>(
+        [
+            "source.md", "Link to non-existent heading 'no-such-heading' in document 'target.md'"
+            "source.md", "Link to non-existent document 'missing.md'"
+        ],
+        diagToHuman folder
+    )
+
+    let severities =
+        checkDoc folder source
+        |> List.map (fun entry -> (diagToLsp entry).Severity)
+
+    Assert.Equal<option<Ionide.LanguageServerProtocol.Types.DiagnosticSeverity>>(
+        [
+            Some Ionide.LanguageServerProtocol.Types.DiagnosticSeverity.Warning
+            Some Ionide.LanguageServerProtocol.Types.DiagnosticSeverity.Warning
+        ],
+        severities
+    )
+
+[<Fact>]
 let noCrossFileDiagOnSingleFileFolders () =
     let doc =
         FakeDoc.Mk(
